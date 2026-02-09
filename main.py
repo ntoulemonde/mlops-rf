@@ -137,7 +137,7 @@ with mlflow.start_run():
 
 # %%
 # Select features and target variable
-features = ["pclass", "sex", "age", "sibsp", "fare"]
+features = ["pclass", "sex", "age", "sibsp", "fare", "id"]
 X = titanic_df.select(features)
 y = titanic_df.select(["survived"])
 
@@ -156,7 +156,7 @@ X_train, X_test, y_train, y_test = train_test_split(
 # %%
 # Instantiate model and fit to data
 clf = tree.DecisionTreeClassifier(max_depth=3)
-clf.fit(X_train.to_pandas().values, y_train.to_pandas().values)
+clf.fit(X_train.drop("id").to_pandas().values, y_train.to_pandas().values)
 
 # %%
 from matplotlib import pyplot as plt
@@ -164,20 +164,28 @@ from matplotlib import pyplot as plt
 tree.plot_tree(clf, proportion=True)
 plt.show()
 # %%
-y_pred = clf.predict(X_test.to_pandas().values)
+y_pred = clf.predict(X_test.drop("id").to_pandas().values)
 accuracy = accuracy_score(y_test.to_pandas(), y_pred)
 print(f"Model Accuracy: {accuracy:.2f}")
 
 # %%
 with mlflow.start_run():
     mlflow.set_tag("mlflow.runName", "Decision Tree Classifier - true data")
-    mlflow.sklearn.log_model(model, "logistic_regression_model")
-    mlflow.log_params(model.get_params())
+    mlflow.sklearn.log_model(clf, "Decision Tree Classifier")
+    mlflow.log_params(clf.get_params())
     mlflow.log_metric("accuracy", accuracy)
     mlflow.log_input(
         mlflow.data.from_polars(
-            pl.concat([X, y, titanic_df.select("id")], how="horizontal"),
-            source="train_data.csv",
+            pl.concat(
+                [
+                    X,
+                    y,
+                ],
+                how="horizontal",
+            ),
+            targets="survived",
         ),
-        context="training dataset",
+        context="Original dataset",
     )
+
+# %%
