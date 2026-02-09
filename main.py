@@ -95,6 +95,36 @@ with mlflow.start_run():
         context="training dataset",
     )
 
+
+# %%
+(p9.ggplot(titanic_df) + p9.aes("survived") + p9.geom_bar() + p9.facet_wrap("pclass"))
+# %%
+(p9.ggplot(titanic_df) + p9.aes("survived") + p9.geom_bar() + p9.facet_wrap("embarked"))
+
+# %%
+(
+    p9.ggplot(
+        titanic_df.with_columns(
+            fare=pl.when(pl.col("fare") < 1).then(1).otherwise("fare")
+        )
+    )
+    + p9.aes("fare", group="survived", fill="survived")
+    + p9.geom_histogram()
+    + p9.scale_x_log10()
+)
+# %%
+(
+    p9.ggplot(titanic_df)
+    + p9.aes("survived", "fare", colour="survived")
+    + p9.geom_point(position=p9.position_jitter(width=0.2, height=0.2))
+)
+# %%
+(
+    p9.ggplot(titanic_df)
+    + p9.aes("age", group="survived", fill="survived")
+    + p9.geom_histogram()
+)
+
 # %%
 # Select features and target variable
 features = [
