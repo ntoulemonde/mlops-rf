@@ -1,8 +1,21 @@
 # %%
 # Import modules
 # Inspired from
+import mlflow
 import plotnine as p9
 import polars as pl
+
+# %%
+# Set up mlflow
+
+# Set the tracking URI to your MLflow server
+mlflow.set_tracking_uri(os.environ["MLFLOW_TRACKING_URI"])
+mlflow.set_experiment(experiment_name="Titanic")
+
+# Example of logging a run
+with mlflow.start_run():
+    mlflow.log_param("param1", 5)
+    mlflow.log_metric("metric1", 0.85)
 
 # %%
 # Import data
