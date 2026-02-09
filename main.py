@@ -161,8 +161,16 @@ clf.fit(X_train.drop("id").to_pandas().values, y_train.to_pandas().values)
 # %%
 from matplotlib import pyplot as plt
 
-tree.plot_tree(clf, proportion=True)
-plt.show()
+plt.figure(figsize=(20, 10))
+tree.plot_tree(
+    clf,
+    proportion=True,
+    feature_names=features,
+    class_names=["Not Survived", "Survived"],
+    filled=True,
+)
+plt.savefig("decision_tree.png")
+plt.close()
 # %%
 y_pred = clf.predict(X_test.drop("id").to_pandas().values)
 accuracy = accuracy_score(y_test.to_pandas(), y_pred)
@@ -187,5 +195,6 @@ with mlflow.start_run():
         ),
         context="Original dataset",
     )
+    mlflow.log_artifact("decision_tree.png")
 
 # %%
