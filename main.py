@@ -5,9 +5,11 @@ import mlflow
 import plotnine as p9
 import polars as pl
 import seaborn as sns
+from matplotlib import pyplot as plt
 from sklearn import tree
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
+from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 
 # %%
@@ -154,47 +156,48 @@ X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.2, random_state=202602
 )
 # %%
-# Instantiate model and fit to data
-clf = tree.DecisionTreeClassifier(max_depth=3)
-clf.fit(X_train.drop("id").to_pandas().values, y_train.to_pandas().values)
+max_depths = np.arange(6) + 1
+for max_depth in max_depths:
+    # Instantiate model and fit to data
+    clf = tree.DecisionTreeClassifier(max_depth=max_depth)
+    clf.fit(X_train.drop("id").to_pandas().values, y_train.to_pandas().values)
 
-# %%
-from matplotlib import pyplot as plt
-
-plt.figure(figsize=(20, 10))
-tree.plot_tree(
-    clf,
-    proportion=True,
-    feature_names=features,
-    class_names=["Not Survived", "Survived"],
-    filled=True,
-)
-plt.savefig("decision_tree.png")
-plt.close()
-# %%
-y_pred = clf.predict(X_test.drop("id").to_pandas().values)
-accuracy = accuracy_score(y_test.to_pandas(), y_pred)
-print(f"Model Accuracy: {accuracy:.2f}")
-
-# %%
-with mlflow.start_run():
-    mlflow.set_tag("mlflow.runName", "Decision Tree Classifier - true data")
-    mlflow.sklearn.log_model(clf, "Decision Tree Classifier")
-    mlflow.log_params(clf.get_params())
-    mlflow.log_metric("accuracy", accuracy)
-    mlflow.log_input(
-        mlflow.data.from_polars(
-            pl.concat(
-                [
-                    X,
-                    y,
-                ],
-                how="horizontal",
-            ),
-            targets="survived",
-        ),
-        context="Original dataset",
+    plt.figure(figsize=(20, 10))
+    tree.plot_tree(
+        clf,
+        proportion=True,
+        feature_names=features,
+        class_names=["Not Survived", "Survived"],
+        filled=True,
     )
-    mlflow.log_artifact("decision_tree.png")
+    plt.savefig(f"decision_tree_max_depth_{max_depth}.png")
+    plt.close()
+
+    y_pred = clf.predict(X_test.drop("id").to_pandas().values)
+    accuracy = accuracy_score(y_test.to_pandas(), y_pred)
+    print(f"Model Accuracy: {accuracy:.2f}")
+
+    with mlflow.start_run():
+        mlflow.set_tag(
+            "mlflow.runName",
+            f"Decision Tree Classifier - true data - depth {max_depth}",
+        )
+        mlflow.sklearn.log_model(clf, f"Decision Tree Classifier_depth {max_depth}")
+        mlflow.log_params(clf.get_params())
+        mlflow.log_metric("accuracy", accuracy)
+        mlflow.log_input(
+            mlflow.data.from_polars(
+                pl.concat(
+                    [
+                        X,
+                        y,
+                    ],
+                    how="horizontal",
+                ),
+                targets="survived",
+            ),
+            context="Original dataset",
+        )
+        mlflow.log_artifact(f"decision_tree_max_depth_{max_depth}.png")
 
 # %%
