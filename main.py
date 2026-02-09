@@ -82,6 +82,20 @@ accuracy = accuracy_score(titanic_df.select("survived"), y_pred)
 print(f"Model Accuracy: {accuracy:.2f}")
 
 # %%
+with mlflow.start_run():
+    mlflow.set_tag("mlflow.runName", "Logistic Regression based on only women survived")
+    mlflow.sklearn.log_model(model, "logistic_regression_model")
+    mlflow.log_params(model.get_params())
+    mlflow.log_metric("accuracy", accuracy)
+    mlflow.log_input(
+        mlflow.data.from_polars(
+            pl.concat([X, y, titanic_df.select("id")], how="horizontal"),
+            source="train_data.csv",
+        ),
+        context="training dataset",
+    )
+
+# %%
 # Select features and target variable
 features = [
     "pclass",
