@@ -5,6 +5,7 @@ import mlflow
 import plotnine as p9
 import polars as pl
 import seaborn as sns
+from sklearn import tree
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
 from sklearn.preprocessing import LabelEncoder
@@ -56,10 +57,10 @@ titanic_df.describe()
 # %%
 # Select features and target variable
 features = ["sex"]
-X = titanic_df_sex.select(features)
+X = titanic_df.select(features)
 y = titanic_df.with_columns(
-    pl.when(pl.col("sex") == "female").then(1).otherwise(0).alias("survived")
-).select(["survived"])
+    pl.when(pl.col("sex") == "female").then(1).otherwise(0).alias("survived_mod")
+).select(["survived_mod"])
 
 # %%
 columns_to_encode = ["sex"]
@@ -89,10 +90,19 @@ with mlflow.start_run():
     mlflow.log_metric("accuracy", accuracy)
     mlflow.log_input(
         mlflow.data.from_polars(
-            pl.concat([X, y, titanic_df.select("id")], how="horizontal"),
-            source="train_data.csv",
+            pl.concat(
+                [
+                    X,
+                    y,
+                    titanic_df.select("id"),
+                    pl.DataFrame({"survived_pred": y_pred}),
+                ],
+                how="horizontal",
+            ),
+            targets="survived_mod",
+            predictions="survived_pred",
         ),
-        context="training dataset",
+        context="Modified dataset with women only who survived",
     )
 
 
@@ -127,29 +137,47 @@ with mlflow.start_run():
 
 # %%
 # Select features and target variable
-features = [
-    "pclass",
-    "sex",
-    "age",
-    "sibSp",
-    "parch",
-    "fare",
-    "embarked",
-]
-X_train = df_train_sex.select(features)
-y_train = df_train_sex.select(["Survived"])
+features = ["pclass", "sex", "age", "sibsp", "fare"]
+X = titanic_df.select(features)
+y = titanic_df.select(["survived"])
 
 # %%
-columns_to_encode = ["Pclass", "Sex", "SibSp", "Parch", "Fare", "Embarked"]
+columns_to_encode = ["pclass", "sex", "sibsp", "pclass"]
 label_encoder = LabelEncoder()
 for this_column_to_encode in columns_to_encode:
-    X_train = X_train.with_columns(
+    X = X.with_columns(
         pl.col(this_column_to_encode).map_batches(label_encoder.fit_transform)
     )
 
 # %%
-model = LogisticRegression()
-model.fit(X_train, y_train)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=202602
+)
+# %%
+# Instantiate model and fit to data
+clf = tree.DecisionTreeClassifier(max_depth=3)
+clf.fit(X_train.to_pandas().values, y_train.to_pandas().values)
 
 # %%
-y_pred = model.predict(X_test)
+from matplotlib import pyplot as plt
+
+tree.plot_tree(clf, proportion=True)
+plt.show()
+# %%
+y_pred = clf.predict(X_test.to_pandas().values)
+accuracy = accuracy_score(y_test.to_pandas(), y_pred)
+print(f"Model Accuracy: {accuracy:.2f}")
+
+# %%
+with mlflow.start_run():
+    mlflow.set_tag("mlflow.runName", "Decision Tree Classifier - true data")
+    mlflow.sklearn.log_model(model, "logistic_regression_model")
+    mlflow.log_params(model.get_params())
+    mlflow.log_metric("accuracy", accuracy)
+    mlflow.log_input(
+        mlflow.data.from_polars(
+            pl.concat([X, y, titanic_df.select("id")], how="horizontal"),
+            source="train_data.csv",
+        ),
+        context="training dataset",
+    )
